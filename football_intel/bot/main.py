@@ -235,6 +235,7 @@ def start_health_server() -> None:
 
 def start_self_ping(url: str) -> None:
     """Keep Render's free web service awake from inside the process."""
+    log.info("Self-ping keep-alive enabled: %s", url)
 
     def loop() -> None:
         while True:
