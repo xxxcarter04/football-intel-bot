@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import re
+import threading
 from datetime import datetime, time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from telegram import BotCommand, InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
@@ -210,10 +213,30 @@ async def post_init(app: Application) -> None:
         )
 
 
+def start_health_server() -> None:
+    """Tiny HTTP endpoint so Render's free web service stays reachable."""
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain")
+            self.end_headers()
+            self.wfile.write(b"ok")
+
+        def log_message(self, fmt, *args):
+            pass
+
+    port = int(os.environ.get("PORT", "8080"))
+    server = ThreadingHTTPServer(("0.0.0.0", port), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True, name="health-server").start()
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     if not settings.telegram_bot_token:
         raise SystemExit("TELEGRAM_BOT_TOKEN is missing. Add it to .env (see .env.example).")
+
+    start_health_server()
 
     app = (
         ApplicationBuilder()
