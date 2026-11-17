@@ -181,7 +181,7 @@ def build_features(ctx: FixtureContext) -> FeatureSet:
             fs.tactical_goal_factor = 1.06
         if home.style == "possession" and away.style == "counter":
             fs.tactical_goal_factor = 1.08
-        fs.notes.append(f"Styles: {home.style} vs {away.style} ({home.formation or 'n/a'} / {away.formation or 'n'}).")
+        fs.notes.append(f"Styles: {home.style} vs {away.style} ({home.formation or 'n/a'} / {away.formation or 'n/a'}).")
 
     # Table context.
     hr, ar = ctx.standings.get(hid), ctx.standings.get(aid)

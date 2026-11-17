@@ -31,6 +31,8 @@ def main() -> None:
     else:
         raw = " ".join(args.teams)
         parts = re.split(r"\s+(?:vs|v|-)\s+", raw, flags=re.I)
+        if len(parts) != 2 and len(args.teams) == 2:
+            parts = args.teams
         if len(parts) != 2:
             parser.error('Provide two teams: python -m football_intel.cli match "Arsenal" "Chelsea"')
         fixture = svc.find_fixture(*parts)

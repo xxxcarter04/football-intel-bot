@@ -95,14 +95,34 @@ class FootballDataProvider:
         return [m for item in data.get("matches", []) if (m := self._parse(item))]
 
     def search_team(self, query: str, league_ids: list[int] | None = None) -> TeamRef | None:
-        data = self._get("/teams", {"search": query, "limit": 20})
-        teams = data.get("teams", [])
-        if not teams:
+        # football-data.org ignores `search` on some plans, so filter client-side.
+        q = query.lower().strip()
+        wanted = {
+            CODES[lid] for lid in (league_ids or list(CODES))
+            if lid in CODES
+        }
+        teams: list[dict] = []
+        for offset in range(0, 1000, 100):
+            data = self._get("/teams", {"limit": 100, "offset": offset}, ttl=7 * 86400)
+            page = data.get("teams", [])
+            teams.extend(page)
+            if len(page) < 100:
+                break
+
+        exact = [t for t in teams if q in (t.get("name") or "").lower()
+                 or q in (t.get("shortName") or "").lower()
+                 or q == (t.get("tla") or "").lower()]
+        if not exact:
+            exact = [t for t in teams if any(word in (t.get("name") or "").lower() for word in q.split())]
+        if not exact:
             return None
-        team = teams[0]
+        if wanted:
+            exact.sort(key=lambda t: 0 if (t.get("competition") or {}).get("code") in wanted else 1)
+        team = exact[0]
+        comp = (team.get("competition") or {}).get("code", "")
         return TeamRef(
             id=team["id"], name=team.get("shortName") or team["name"],
-            code=team.get("tla", ""), league_id=league_ids[0] if league_ids else 39,
+            code=team.get("tla", ""), league_id=CANON.get(comp, 39),
             season=current_season(),
         )
 
