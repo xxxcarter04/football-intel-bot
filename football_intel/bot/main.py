@@ -5,6 +5,8 @@ import logging
 import os
 import re
 import threading
+import time
+import urllib.request
 from datetime import datetime, time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -231,12 +233,29 @@ def start_health_server() -> None:
     threading.Thread(target=server.serve_forever, daemon=True, name="health-server").start()
 
 
+def start_self_ping(url: str) -> None:
+    """Keep Render's free web service awake from inside the process."""
+
+    def loop() -> None:
+        while True:
+            time.sleep(300)
+            try:
+                urllib.request.urlopen(url, timeout=15).read()
+                log.debug("self-ping ok")
+            except Exception as exc:
+                log.warning("self-ping failed: %s", exc)
+
+    threading.Thread(target=loop, daemon=True, name="self-ping").start()
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     if not settings.telegram_bot_token:
         raise SystemExit("TELEGRAM_BOT_TOKEN is missing. Add it to .env (see .env.example).")
 
     start_health_server()
+    if os.environ.get("SELF_PING_URL"):
+        start_self_ping(os.environ["SELF_PING_URL"])
 
     app = (
         ApplicationBuilder()
