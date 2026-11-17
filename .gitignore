@@ -1,0 +1,6 @@
+.env
+.deps/
+.data/
+__pycache__/
+*.pyc
+bot.log

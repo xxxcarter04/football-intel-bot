@@ -1,0 +1,27 @@
+services:
+  - type: worker
+    name: football-intel-bot
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: FOOTBALL_DATA_TOKEN
+        sync: false
+      - key: API_FOOTBALL_KEY
+        sync: false
+      - key: API_FOOTBALL_HOST
+        value: api-football-v1.p.rapidapi.com
+      - key: HISTORY_SEASONS
+        value: "2"
+      - key: CACHE_TTL_HOURS
+        value: "6"
+      - key: LEAGUE_IDS
+        value: 39,140,135,78,61,2
+      - key: TIMEZONE
+        value: UTC
+      - key: DIGEST_TIME
+        value: "09:00"
+      - key: ALLOWED_USER_IDS
+        sync: false
