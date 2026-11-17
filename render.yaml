@@ -1,6 +1,6 @@
 services:
-  - type: worker
-    name: football-intel-bot
+  - type: web
+    name: football-intel-bot-free
     runtime: docker
     dockerfilePath: ./Dockerfile
     plan: free
@@ -23,5 +23,5 @@ services:
         value: UTC
       - key: DIGEST_TIME
         value: "09:00"
-      - key: ALLOWED_USER_IDS
-        sync: false
+      - key: SELF_PING_URL
+        value: https://football-intel-bot-free.onrender.com/

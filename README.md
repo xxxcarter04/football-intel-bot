@@ -71,6 +71,15 @@ docker build -t football-intel-bot .
 docker run --env-file .env -v "$PWD/.data:/app/.data" football-intel-bot
 ```
 
+### Free Render deployment (currently in use)
+
+The bot runs as a **free Render web service**. Render's free web services sleep after ~15 minutes
+without inbound traffic, so the app exposes a tiny HTTP health endpoint (`PORT`, default 8080) and,
+when `SELF_PING_URL` is set, pings that URL every 5 minutes from a background thread to stay awake.
+
+`render.yaml` describes this service. The live deployment is at
+`https://football-intel-bot-free.onrender.com/`.
+
 ## Adding more leagues
 
 Set `LEAGUE_IDS` in `.env` to any comma-separated API-Football league IDs. Lower tiers ( Championship,
