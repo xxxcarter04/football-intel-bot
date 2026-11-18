@@ -23,7 +23,12 @@ from telegram.ext import (
     filters,
 )
 
-from ..analysis.report import render_all_leagues, render_analysis, render_quick
+from ..analysis.report import (
+    render_all_leagues,
+    render_analysis,
+    render_leagues_overview,
+    render_quick,
+)
 from ..config import get_settings
 from ..service import AnalysisService
 
@@ -68,7 +73,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "Commands:\n"
         "/today [days] — full analysis for every match, all leagues\n"
         "/match Team A vs Team B — one-match deep dive\n"
-        "/leagues — covered competitions\n"
+        "/leagues [days] — all matches by league, predictions separated by |\n"
         "/provider — active data source\n"
         "/refresh — clear cached data\n"
         "/help — this message\n\n"
@@ -84,10 +89,25 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def cmd_leagues(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not permitted(update):
         return
-    text = "🏆 *Covered competitions*\n" + "\n".join(
-        f"• {service.provider.league_name(lid, 0)} (id {lid})" for lid in settings.leagues
+    args = context.args or []
+    try:
+        days = min(max(int(args[0]), 1), 7) if args else 2
+    except ValueError:
+        days = 2
+    await update.effective_chat.send_action("typing")
+    matches = await asyncio.to_thread(service.upcoming, days)
+    if not matches:
+        await safe_send("No fixtures found in that window.", update)
+        return
+
+    truncated = len(matches) > 20
+    matches = matches[:20]
+    await safe_send(
+        f"⏳ Analysing {len(matches)} matches across all covered leagues — this can take a minute…",
+        update,
     )
-    await safe_send(text, update)
+    preds = await asyncio.to_thread(lambda: [service.analyze(m) for m in matches])
+    await safe_send(render_leagues_overview(preds, days, truncated), update)
 
 
 async def cmd_provider(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -198,7 +218,7 @@ async def post_init(app: Application) -> None:
     await app.bot.set_my_commands([
         BotCommand("today", "Full analysis: all leagues"),
         BotCommand("match", "Deep-dive a matchup"),
-        BotCommand("leagues", "Covered leagues"),
+        BotCommand("leagues", "All matches by league"),
         BotCommand("provider", "Data source status"),
         BotCommand("refresh", "Clear cache"),
         BotCommand("help", "Help"),

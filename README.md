@@ -51,7 +51,7 @@ Telegram commands:
 |---|---|
 | `/today [days]` | Full analysis for every upcoming match across all covered leagues, grouped by competition |
 | `/match Team A vs Team B` | Full deep-dive report |
-| `/leagues` | Covered competitions |
+| `/leagues [days]` | All upcoming matches by league, predictions separated by `|` |
 | `/provider` | Active data source |
 | `/refresh` | Clear the response cache |
 | `/help` | Help |

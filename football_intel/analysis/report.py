@@ -102,7 +102,95 @@ def render_analysis(pred: Prediction) -> str:
                     lines.append(f"• {label} missing: " + ", ".join(i.player for i in inj[:4]))
         lines.append("")
 
+    lines.extend(render_pattern_section(pred))
+    lines.append("")
+
     lines.append("⚠️ Model estimate, not a certainty. No guarantee of profit — gamble responsibly, 18+.")
+    return "\n".join(lines)
+
+
+def render_pattern_section(pred: Prediction) -> list[str]:
+    """Full pattern-recognition block from the 3-year history window."""
+    p = pred.patterns or {}
+    ctx = pred.context
+    lines = ["🔎 *3-YEAR PATTERN RECOGNITION*"]
+
+    lg = p.get("league", {})
+    if lg.get("matches"):
+        seasons = lg.get("goal_by_season", {})
+        trend_text = ", ".join(f"{s}: {v:.2f}" for s, v in sorted(seasons.items()))
+        lines.append(
+            f"• League: {lg['matches']} matches over {lg.get('seasons', 0)} seasons | "
+            f"{lg.get('goals_per_game', 0):.2f} goals/game | "
+            f"O2.5 {_pct(lg.get('over25', 0))} | home wins {_pct(lg.get('home_win', 0))} | "
+            f"trend {lg.get('goal_trend', 'flat')} ({trend_text})"
+        )
+
+    for key, label in (("home", ctx.home_team.name), ("away", ctx.away_team.name)):
+        t = p.get(key, {})
+        if not t.get("matches"):
+            continue
+        lines.append(
+            f"• {label}: W/D/L {_pct(t.get('win', 0))}/{_pct(t.get('draw', 0))}/{_pct(t.get('loss', 0))} | "
+            f"GF {t.get('gf_per_game', 0):.2f}, GA {t.get('ga_per_game', 0):.2f} per game | "
+            f"O2.5 {_pct(t.get('over25', 0))}, BTTS {_pct(t.get('btts', 0))}, clean sheets {_pct(t.get('clean_sheet', 0))}"
+        )
+        lines.append(
+            f"   Home {t.get('home_gf', 0):.2f}-{t.get('home_ga', 0):.2f} vs "
+            f"away {t.get('away_gf', 0):.2f}-{t.get('away_ga', 0):.2f} | "
+            f"goals trend {t.get('goal_trend', 'flat')} | "
+            f"form streak {p.get('streak_' + key, 'n/a')}"
+        )
+
+    h = p.get("h2h", {})
+    if h.get("matches"):
+        lines.append(
+            f"• H2H ({h['matches']} meetings): {h.get('avg_goals', 0):.2f} goals/game | "
+            f"O2.5 {_pct(h.get('over25', 0))} | BTTS {_pct(h.get('btts', 0))} | "
+            f"home/away/draw {h.get('home_wins', 0)}/{h.get('away_wins', 0)}/{h.get('draws', 0)} | "
+            f"sequence {h.get('sequence', 'n/a')}"
+        )
+    return lines
+
+
+def pattern_line(pred: Prediction) -> str:
+    """Compact one-line pattern summary for the all-match overview."""
+    p = pred.patterns or {}
+    h, a, lg = p.get("home", {}), p.get("away", {}), p.get("league", {})
+    if not h and not a and not lg:
+        return "PATTERN n/a"
+    return (
+        f"PATTERN {pred.context.home_team.name}: O2.5 {_pct(h.get('over25', 0))} "
+        f"BTTS {_pct(h.get('btts', 0))} CS {_pct(h.get('clean_sheet', 0))} | "
+        f"{pred.context.away_team.name}: O2.5 {_pct(a.get('over25', 0))} "
+        f"BTTS {_pct(a.get('btts', 0))} CS {_pct(a.get('clean_sheet', 0))} | "
+        f"league {lg.get('goal_trend', 'flat')} {lg.get('goals_per_game', 0):.2f} gpg"
+    )
+
+
+def render_leagues_overview(preds: list[Prediction], days: int, truncated: bool = False) -> str:
+    """All upcoming matches by league, with | separating each market."""
+    groups: dict[str, list[Prediction]] = {}
+    for pred in preds:
+        groups.setdefault(pred.context.league_name, []).append(pred)
+
+    lines = [f"📊 *All leagues — predictions (next {days} days)* • {len(preds)} matches"]
+    if truncated:
+        lines.append("_Showing the first 20 fixtures only._")
+    for league, items in groups.items():
+        lines.append("")
+        lines.append(f"🏆 *{league}*")
+        for pred in items:
+            m = pred.markets
+            lines.append(
+                f"{pred.context.home_team.name} vs {pred.context.away_team.name} — "
+                f"1X2 {_pct(m['1X2']['H'])}/{_pct(m['1X2']['D'])}/{_pct(m['1X2']['A'])} | "
+                f"OU2.5 {_pct(m['OU'][2.5]['over'])}/{_pct(m['OU'][2.5]['under'])} | "
+                f"BTTS {_pct(m['BTTS']['yes'])}/{_pct(m['BTTS']['no'])} | "
+                f"DNB {_pct(m['DNB']['H'])}/{_pct(m['DNB']['A'])} | "
+                f"score {pred.top_scores[0][0]}-{pred.top_scores[0][1]} ({_pct(pred.top_scores[0][2])})"
+            )
+            lines.append(f"   {pattern_line(pred)}")
     return "\n".join(lines)
 
 

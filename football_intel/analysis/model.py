@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from football_intel.data.models import FixtureContext
 
 from .features import FeatureSet, TeamStrength, _clamp, build_features
+from .patterns import analyze_patterns
 
 MAX_GOALS = 12
 RHO = -0.08  # Dixon-Coles low-score correction
@@ -21,6 +22,7 @@ class Prediction:
     probs: dict[str, float] = field(default_factory=dict)
     top_scores: list[tuple[int, int, float]] = field(default_factory=list)
     markets: dict = field(default_factory=dict)
+    patterns: dict = field(default_factory=dict)
     confidence: float = 0.0
 
 
@@ -110,6 +112,7 @@ def predict(ctx: FixtureContext) -> Prediction:
         confidence=conf,
     )
     pred.markets = build_markets(pred)
+    pred.patterns = analyze_patterns(ctx)
     return pred
 
 
