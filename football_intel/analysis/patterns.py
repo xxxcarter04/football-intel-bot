@@ -154,8 +154,8 @@ def _league_profile(history: list[Match]) -> dict:
     }
 
 
-def analyze_patterns(ctx: FixtureContext) -> dict:
-    """Recognise repeatable trends across the 3-year history window."""
+def analyze_statistics(ctx: FixtureContext) -> dict:
+    """Summarise historical statistics across the recent history window."""
     history = ctx.history
     return {
         "league": _league_profile(history),
@@ -165,3 +165,8 @@ def analyze_patterns(ctx: FixtureContext) -> dict:
         "streak_home": _streak(ctx.home.form),
         "streak_away": _streak(ctx.away.form),
     }
+
+
+def analyze_patterns(ctx: FixtureContext) -> dict:
+    """Backward-compatible alias for analyze_statistics."""
+    return analyze_statistics(ctx)
