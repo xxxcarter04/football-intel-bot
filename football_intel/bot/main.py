@@ -127,6 +127,10 @@ async def cmd_today(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     truncated = len(matches) > 20
     matches = matches[:20]
+    await safe_send(
+        f"⏳ Analysing {len(matches)} matches across all covered leagues — this can take a minute…",
+        update,
+    )
     preds = await asyncio.to_thread(lambda: [service.analyze(m) for m in matches])
     await safe_send(render_all_leagues(preds, days, truncated), update)
 
@@ -244,6 +248,17 @@ def start_self_ping(url: str) -> None:
     threading.Thread(target=loop, daemon=True, name="self-ping").start()
 
 
+def prewarm_cache() -> None:
+    """Fetch league data in the background so the first /today is fast."""
+    try:
+        matches = service.upcoming(2)
+        for match in matches[:20]:
+            service.analyze(match)
+        log.info("Cache prewarmed for %d matches", len(matches))
+    except Exception as exc:
+        log.warning("Cache prewarm failed: %s", exc)
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     if not settings.telegram_bot_token:
@@ -252,6 +267,7 @@ def main() -> None:
     start_health_server()
     if os.environ.get("SELF_PING_URL"):
         start_self_ping(os.environ["SELF_PING_URL"])
+    threading.Thread(target=prewarm_cache, daemon=True, name="prewarm").start()
 
     app = (
         ApplicationBuilder()

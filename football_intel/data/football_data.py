@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import threading
+import time as time_module
 from datetime import datetime, timedelta, timezone
 
 import httpx
@@ -29,6 +31,21 @@ NAMES = {39: "Premier League", 140: "La Liga", 135: "Serie A", 78: "Bundesliga",
 class FootballDataProvider:
     name = "football-data"
 
+    # Free tier allows 10 requests/minute. Space requests so we never get 429s.
+    _request_times: list[float] = []
+    _rate_lock = threading.Lock()
+
+    def _throttle(self) -> None:
+        with self._rate_lock:
+            now = time_module.monotonic()
+            recent = [t for t in self._request_times if now - t < 60]
+            if len(recent) >= 9:
+                time_module.sleep(max(0.0, 60 - (now - recent[0]) + 0.2))
+                now = time_module.monotonic()
+                recent = [t for t in self._request_times if now - t < 60]
+            recent.append(now)
+            self._request_times = recent
+
     def __init__(self):
         s = get_settings()
         if not s.football_data_token:
@@ -50,11 +67,11 @@ class FootballDataProvider:
         cached = self.cache.get(key, ttl)
         if cached is not None:
             return cached
+        self._throttle()
         r = self.client.get(f"{self.base}/{path}", params=params)
         if r.status_code == 429:
             retry_after = int(r.headers.get("Retry-After", "6"))
-            import time
-            time.sleep(min(max(retry_after, 6), 30))
+            time_module.sleep(min(max(retry_after, 6), 30))
         r.raise_for_status()
         body = r.json()
         self.cache.set(key, body)
