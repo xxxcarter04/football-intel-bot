@@ -14,7 +14,7 @@ services:
       - key: API_FOOTBALL_HOST
         value: api-football-v1.p.rapidapi.com
       - key: HISTORY_SEASONS
-        value: "2"
+        value: "3"
       - key: CACHE_TTL_HOURS
         value: "6"
       - key: LEAGUE_IDS

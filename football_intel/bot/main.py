@@ -23,7 +23,7 @@ from telegram.ext import (
     filters,
 )
 
-from ..analysis.report import render_analysis, render_quick
+from ..analysis.report import render_all_leagues, render_analysis, render_quick
 from ..config import get_settings
 from ..service import AnalysisService
 
@@ -66,13 +66,13 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await safe_send(
         "⚽ *Football Intel Bot*\n\n"
         "Commands:\n"
-        "/today [days] — fixtures with probabilities\n"
-        "/match Team A vs Team B — full deep-dive analysis\n"
+        "/today [days] — full analysis for every match, all leagues\n"
+        "/match Team A vs Team B — one-match deep dive\n"
         "/leagues — covered competitions\n"
         "/provider — active data source\n"
         "/refresh — clear cached data\n"
         "/help — this message\n\n"
-        "Tip: tap a fixture button to expand it. Estimates are model outputs, not certainties.",
+        "Tip: /today gives the full report for every upcoming match across all leagues. Estimates are model outputs, not certainties.",
         update,
     )
 
@@ -124,16 +124,11 @@ async def cmd_today(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not matches:
         await safe_send("No fixtures found in that window.", update)
         return
-    fixtures.clear()
-    buttons = []
-    text = [f"📅 *Upcoming fixtures — next {days} days* ({len(matches)} found)"]
-    for idx, m in enumerate(matches[:16]):
-        key = str(idx)
-        fixtures[key] = m
-        text.append(f"{idx+1}. {m.home_name} vs {m.away_name} — {m.date.strftime('%d %b %H:%M')}")
-        buttons.append(InlineKeyboardButton(f"{idx+1}. {m.home_name}–{m.away_name}", callback_data=f"fx:{key}"))
-    markup = InlineKeyboardMarkup([buttons[i : i + 2] for i in range(0, len(buttons), 2)])
-    await update.effective_chat.send_message("\n".join(text), reply_markup=markup)
+
+    truncated = len(matches) > 20
+    matches = matches[:20]
+    preds = await asyncio.to_thread(lambda: [service.analyze(m) for m in matches])
+    await safe_send(render_all_leagues(preds, days, truncated), update)
 
 
 async def cb_fixture(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -197,7 +192,7 @@ async def daily_digest(context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def post_init(app: Application) -> None:
     await app.bot.set_my_commands([
-        BotCommand("today", "Upcoming fixtures"),
+        BotCommand("today", "Full analysis: all leagues"),
         BotCommand("match", "Deep-dive a matchup"),
         BotCommand("leagues", "Covered leagues"),
         BotCommand("provider", "Data source status"),

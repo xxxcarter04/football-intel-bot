@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     api_football_key: str = ""
     api_football_host: str = "api-football-v1.p.rapidapi.com"
     football_data_token: str = ""
-    history_seasons: int = 5
+    history_seasons: int = 3
     cache_ttl_hours: int = 6
     league_ids: str = "39,140,135,78,61,2"
     timezone: str = "UTC"

@@ -49,7 +49,7 @@ Telegram commands:
 
 | Command | Purpose |
 |---|---|
-| `/today [days]` | Upcoming fixtures with tap-to-expand buttons |
+| `/today [days]` | Full analysis for every upcoming match across all covered leagues, grouped by competition |
 | `/match Team A vs Team B` | Full deep-dive report |
 | `/leagues` | Covered competitions |
 | `/provider` | Active data source |
@@ -93,5 +93,7 @@ practical: coverage is uneven and the request volume is large — start with the
 - Odds/line shopping is not included; the bot outputs model probabilities, not bookmaker prices.
 - Referee card/penalty averages are only populated when the provider exposes them; with football-data.org
   they fall back to defaults.
+- The free football-data.org token only permits seasons 2023–2025; older seasons (e.g. 2010) return HTTP 403.
+  `HISTORY_SEASONS=3` is therefore the maximum useful value on the free tier.
 - This sandbox has no `python3-venv`, so dependencies were installed into `.deps`. Run with
   `PYTHONPATH=.deps:. python3 -m ...` or use Docker locally.

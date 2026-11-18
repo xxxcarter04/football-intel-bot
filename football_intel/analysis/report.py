@@ -115,3 +115,23 @@ def render_quick(pred: Prediction) -> str:
         f"OU2.5 {_pct(m['OU'][2.5]['over'])}/{_pct(m['OU'][2.5]['under'])} • "
         f"DNB {_pct(m['DNB']['H'])}/{_pct(m['DNB']['A'])}"
     )
+
+
+def render_all_leagues(preds: list[Prediction], days: int, truncated: bool = False) -> str:
+    """Full analysis for every upcoming match, grouped by competition."""
+    groups: dict[str, list[Prediction]] = {}
+    for pred in preds:
+        groups.setdefault(pred.context.league_name, []).append(pred)
+
+    lines = [
+        f"📅 *Upcoming — all covered leagues (next {days} days)* • {len(preds)} matches"
+    ]
+    if truncated:
+        lines.append("_Showing the first 20 fixtures only._")
+    for league, items in groups.items():
+        lines.append("")
+        lines.append(f"🏆 *{league}*")
+        for pred in items:
+            lines.append("")
+            lines.append(render_analysis(pred))
+    return "\n".join(lines)
