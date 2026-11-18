@@ -5,7 +5,7 @@ import logging
 import os
 import re
 import threading
-import time
+import time as time_module
 import urllib.request
 from datetime import datetime, time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -239,10 +239,10 @@ def start_self_ping(url: str) -> None:
 
     def loop() -> None:
         while True:
-            time.sleep(300)
+            time_module.sleep(300)
             try:
                 urllib.request.urlopen(url, timeout=15).read()
-                log.debug("self-ping ok")
+                log.info("self-ping ok")
             except Exception as exc:
                 log.warning("self-ping failed: %s", exc)
 
