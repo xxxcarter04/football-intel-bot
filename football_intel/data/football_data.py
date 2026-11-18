@@ -39,7 +39,7 @@ class FootballDataProvider:
         with self._rate_lock:
             now = time_module.monotonic()
             recent = [t for t in self._request_times if now - t < 60]
-            if len(recent) >= 9:
+            if len(recent) >= 6:
                 time_module.sleep(max(0.0, 60 - (now - recent[0]) + 0.2))
                 now = time_module.monotonic()
                 recent = [t for t in self._request_times if now - t < 60]
