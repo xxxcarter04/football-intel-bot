@@ -104,7 +104,7 @@ def main() -> None:
             {"key": "FOOTBALL_DATA_TOKEN", "value": fd_token},
             {"key": "API_FOOTBALL_KEY", "value": os.environ.get("API_FOOTBALL_KEY", "")},
             {"key": "API_FOOTBALL_HOST", "value": "api-football-v1.p.rapidapi.com"},
-            {"key": "HISTORY_SEASONS", "value": "2"},
+            {"key": "HISTORY_SEASONS", "value": "3"},
             {"key": "CACHE_TTL_HOURS", "value": "6"},
             {"key": "LEAGUE_IDS", "value": "39,140,135,78,61,2"},
             {"key": "TIMEZONE", "value": "UTC"},
@@ -127,6 +127,7 @@ def main() -> None:
     data = result.json()
     print("Render worker created:", data.get("id"), data.get("name"))
     print("The bot will be live in a few minutes once the image builds.")
+    print("Paid worker: always on, no spin-down. Compute is billed per second; delete the service to stop charges.")
 
 
 if __name__ == "__main__":

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import math
 import random
+import re
 from datetime import datetime, timedelta, timezone
 
 from ..config import get_settings
@@ -38,6 +39,27 @@ TEAMS: dict[int, list[tuple[int, str, float]]] = {
 NAMES = {39: "Premier League", 140: "La Liga", 135: "Serie A", 78: "Bundesliga", 61: "Ligue 1", 2: "Champions League"}
 STRENGTH = {tid: s for teams in TEAMS.values() for tid, _, s in teams}
 TEAM_NAMES = {tid: n for teams in TEAMS.values() for tid, n, _ in teams}
+
+# Common shorthand people type into the Match button / chat.
+TEAM_ALIASES = {
+    "man utd": "man utd", "man united": "man utd", "manchester united": "man utd",
+    "man city": "man city", "manchester city": "man city",
+    "spurs": "tottenham", "tottenham hotspur": "tottenham",
+    "inter milan": "inter", "internazionale": "inter",
+    "juve": "juventus", "juventus fc": "juventus",
+    "barca": "barcelona", "fc barcelona": "barcelona",
+    "real": "real madrid", "real madrid cf": "real madrid",
+    "atletico": "atletico", "atletico madrid": "atletico",
+    "psg": "psg", "paris saint germain": "psg", "paris sg": "psg",
+    "bayern munich": "bayern", "fc bayern": "bayern",
+    "bvb": "dortmund", "borussia dortmund": "dortmund",
+    "bayer leverkusen": "leverkusen",
+}
+
+
+def normalize_name(value: str) -> str:
+    """Lowercase, strip punctuation and collapse whitespace for fuzzy lookup."""
+    return " ".join(re.sub(r"[^a-z0-9 ]", " ", value.lower()).split())
 
 
 def _poisson(lam: float, rng: random.Random) -> int:
@@ -89,12 +111,24 @@ class DemoProvider:
         return matches
 
     def search_team(self, query: str, league_ids: list[int] | None = None) -> TeamRef | None:
-        q = query.lower()
+        raw = normalize_name(query)
+        q = TEAM_ALIASES.get(raw, raw)
+        q_tokens = set(q.split())
         for lid, teams in TEAMS.items():
             if league_ids and lid not in league_ids:
                 continue
             for tid, name, _ in teams:
-                if q in name.lower() or name.lower() in q:
+                name_norm = normalize_name(name)
+                resolved = TEAM_ALIASES.get(name_norm, name_norm)
+                resolved_tokens = set(resolved.split())
+                if (
+                    q == name_norm
+                    or q in name_norm
+                    or name_norm in q
+                    or q == resolved
+                    or q in resolved
+                    or (q_tokens and q_tokens == resolved_tokens)
+                ):
                     return TeamRef(id=tid, name=name, league_id=lid, season=current_season())
         return None
 
@@ -108,20 +142,32 @@ class DemoProvider:
         return self._season_matches(league_id, season)
 
     def upcoming(self, league_ids: list[int], days: int = 3) -> list[Match]:
+        """Deterministic round-robin fixtures — at least 10 per league."""
         season = current_season()
-        out = []
+        out: list[Match] = []
+        now = datetime.now(timezone.utc)
+        refs = ["M. Oliver", "D. Orsato", "C. Turpin", "S. Marciniak", "J. Mohan", "A. Taylor", "F. Brych"]
         for lid in league_ids:
-            teams = TEAMS.get(lid, TEAMS[39])
-            rng = random.Random(f"next-{lid}-{season}")
-            now = datetime.now(timezone.utc)
-            for i in range(6):
-                h, a = rng.sample(teams, 2)
+            roster = list(TEAMS.get(lid, TEAMS[39]))
+            n = len(roster)
+            pairs: list[tuple[tuple[int, str, float], tuple[int, str, float]]] = []
+            # Rotate a circle so every side appears at least once in two matchdays.
+            circle = list(roster)
+            for round_no in range(max(2, math.ceil(10 / max(1, n // 2)))):
+                for i in range(n // 2):
+                    home, away = circle[i], circle[n - 1 - i]
+                    if round_no % 2:
+                        home, away = away, home
+                    pairs.append((home, away))
+                circle = [circle[0], circle[-1], *circle[1:-1]]
+            for i, (h, a) in enumerate(pairs[:12]):
                 out.append(Match(
-                    id=9_000_000 + lid * 1000 + i, date=now + timedelta(days=i % (days + 1)),
+                    id=9_000_000 + lid * 1000 + i,
+                    date=now + timedelta(days=1 + (i % max(days, 1))),
                     league_id=lid, season=season, home_id=h[0], away_id=a[0],
                     home_name=h[1], away_name=a[1], status="NS", referee_id=(i % 7) + 1,
-                    referee_name=["M. Oliver", "D. Orsato", "C. Turpin", "S. Marciniak", "J. Mohan", "A. Taylor", "F. Brych"][i % 7],
-                    venue=f"{h[1]} Stadium", round=f"Matchday {20 + i}",
+                    referee_name=refs[i % len(refs)],
+                    venue=f"{h[1]} Stadium", round=f"Matchday {20 + i // max(1, n // 2)}",
                 ))
         return sorted(out, key=lambda m: m.date)
 

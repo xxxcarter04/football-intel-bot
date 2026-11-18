@@ -10,4 +10,6 @@ COPY football_intel ./football_intel
 COPY README.md .
 
 RUN mkdir -p /app/.data
+
+# Paid Render background worker: Telegram long polling needs no inbound port.
 CMD ["python", "-m", "football_intel.bot.main"]

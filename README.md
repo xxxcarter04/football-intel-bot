@@ -45,18 +45,21 @@ real football data — add a provider key for live analysis.
 python -m football_intel.bot.main
 ```
 
-Telegram commands:
+## Telegram controls (buttons)
 
-| Command | Purpose |
+The bot is button-driven — press **Start** and use the persistent menu at the bottom of the chat:
+
+| Button | Purpose |
 |---|---|
-| `/today [days]` | Full analysis for every upcoming match across all covered leagues, grouped by competition |
-| `/match Team A vs Team B` | Full deep-dive report |
-| `/leagues [days]` | All upcoming matches by league, predictions separated by `|` |
-| `/provider` | Active data source |
-| `/refresh` | Clear the response cache |
-| `/help` | Help |
+| ⚽ Today | Full analysis for every upcoming match across all covered leagues, grouped by competition |
+| 🏆 Leagues | Choose one league (Premier League, La Liga, Serie A, Bundesliga, Ligue 1, Champions League) for its own report with at least 10 predictions |
+| 🔥 Hot Picks | The model's strongest signals in each league, with confidence/strength scores — NOT guaranteed outcomes |
+| 🔍 Match | Deep-dive any matchup; type e.g. `Arsenal vs Chelsea` when asked |
+| 📡 Provider | Active data source |
+| ♻️ Refresh | Clear the response cache |
+| ❓ Help | Re-open the menu |
 
-You can also just type `Arsenal vs Chelsea` in the chat.
+You can also just type `Arsenal vs Chelsea` in the chat, and the old slash commands (`/start`, `/today`, `/match`, `/leagues`, `/provider`, `/refresh`, `/help`) still work.
 
 ## Running in the background / 24-7
 
@@ -71,14 +74,26 @@ docker build -t football-intel-bot .
 docker run --env-file .env -v "$PWD/.data:/app/.data" football-intel-bot
 ```
 
-### Free Render deployment (currently in use)
+### Paid Render background worker (recommended / in use)
 
-The bot runs as a **free Render web service**. Render's free web services sleep after ~15 minutes
-without inbound traffic, so the app exposes a tiny HTTP health endpoint (`PORT`, default 8080) and,
-when `SELF_PING_URL` is set, pings that URL every 5 minutes from a background thread to stay awake.
+The bot runs as a **paid Render background worker** (`0.5c-512mb`, about $7/month). Workers are
+always on, never spin down, and do not receive inbound HTTP traffic — Telegram updates arrive via
+long polling, so no health endpoint or `SELF_PING_URL` keep-alive is needed. Compute is billed per
+second, prorated, so deleting the worker stops the charge.
 
-`render.yaml` describes this service. The live deployment is at
-`https://football-intel-bot-free.onrender.com/`.
+`render.yaml` describes the worker. To deploy it:
+
+```bash
+export GITHUB_TOKEN=...            # GitHub PAT with repo/Contents:write scope
+export RENDER_API_KEY=...          # Render API key with service-create permission
+export TELEGRAM_BOT_TOKEN=...
+export FOOTBALL_DATA_TOKEN=...     # or API_FOOTBALL_KEY for full data
+export API_FOOTBALL_KEY=...        # optional but recommended
+PYTHONPATH=.deps:. python3 deploy/deploy_render.py
+```
+
+Billing must be enabled on the Render account before the API can create a paid service. The script
+pushes the code to GitHub and creates the always-on worker; it takes a few minutes to build.
 
 ## Adding more leagues
 

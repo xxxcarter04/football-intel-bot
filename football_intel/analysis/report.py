@@ -3,6 +3,7 @@ from __future__ import annotations
 from football_intel.data.models import FixtureContext
 
 from .model import Prediction
+from .picks import HotPick
 
 
 def _pct(x: float) -> str:
@@ -222,4 +223,74 @@ def render_all_leagues(preds: list[Prediction], days: int, truncated: bool = Fal
         for pred in items:
             lines.append("")
             lines.append(render_analysis(pred))
+    return "\n".join(lines)
+
+
+def render_league_menu(leagues: list[tuple[int, str]], days: int) -> str:
+    """Short overview of the per-league buttons available in Telegram."""
+    lines = [f"🏆 *Leagues* — pick one from the buttons below (next {days} days)", ""]
+    for league_id, name in leagues:
+        lines.append(f"• {name} (ID {league_id})")
+    lines.append("")
+    lines.append("Each league opens its own report with at least 10 predictions.")
+    return "\n".join(lines)
+
+
+def render_league_predictions(
+    league_name: str,
+    preds: list[Prediction],
+    days: int,
+    sample_filled: bool = False,
+) -> str:
+    """Dedicated report for a single competition."""
+    lines = [
+        f"🏆 *{league_name}*",
+        f"{len(preds)} predictions • next {days} days",
+    ]
+    if sample_filled:
+        lines.append("ℹ️ Sample pairings added to reach 10 predictions; real fixtures shown first.")
+    lines.append("")
+    for pred in preds:
+        m = pred.markets
+        top = pred.top_scores[0]
+        lines.append(
+            f"{pred.context.home_team.name} vs {pred.context.away_team.name} — "
+            f"1X2 {_pct(m['1X2']['H'])}/{_pct(m['1X2']['D'])}/{_pct(m['1X2']['A'])} | "
+            f"OU2.5 {_pct(m['OU'][2.5]['over'])}/{_pct(m['OU'][2.5]['under'])} | "
+            f"BTTS {_pct(m['BTTS']['yes'])}/{_pct(m['BTTS']['no'])} | "
+            f"DNB {_pct(m['DNB']['H'])}/{_pct(m['DNB']['A'])} | "
+            f"score {top[0]}-{top[1]} ({_pct(top[2])})"
+        )
+    lines.append("")
+    lines.append("⚠️ Model estimate, not a certainty. Gamble responsibly, 18+.")
+    return "\n".join(lines)
+
+
+def render_hot_picks(picks: list[HotPick], days: int) -> str:
+    """Highest-confidence model signals, grouped by league."""
+    lines = [
+        f"🔥 *HOT PICKS* — strongest model signals (next {days} days)",
+        "These are the model's highest-probability selections in each league — NOT guaranteed outcomes.",
+        "",
+    ]
+    if not picks:
+        lines.append("No strong signals found in this window. Try another league or a wider window.")
+        lines.append("")
+        lines.append("⚠️ Model estimate, not a certainty. Gamble responsibly, 18+.")
+        return "\n".join(lines)
+
+    groups: dict[str, list[HotPick]] = {}
+    for pick in picks:
+        groups.setdefault(pick.league_name, []).append(pick)
+    for league_name, items in groups.items():
+        lines.append(f"🏆 *{league_name}*")
+        for pick in items[:4]:
+            edge = f"+{_pct(pick.edge)}" if pick.edge >= 0 else _pct(pick.edge)
+            lines.append(
+                f"• {pick.home_name} vs {pick.away_name} — {pick.market}: "
+                f"*{pick.selection}* {_pct(pick.probability)} · "
+                f"strength {pick.strength}/100 · edge {edge}"
+            )
+        lines.append("")
+    lines.append("⚠️ Model estimate, not a certainty. No guarantee of profit — gamble responsibly, 18+.")
     return "\n".join(lines)
