@@ -186,6 +186,7 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     if not permitted(update):
         return
     text = (update.message.text or "").strip()
+    log.info("Menu input: %r", text)
 
     if context.user_data.get("awaiting_match"):
         await run_match(text, update, context)
@@ -260,7 +261,7 @@ async def cmd_today(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         days = min(max(int(args[0]), 1), 7) if args else 2
     except ValueError:
         days = 2
-    await update.effective_chat.send_action("typing")
+    await safe_send(f"⏳ Analysing matches across all covered leagues (next {days} days)…", update)
     matches = await asyncio.to_thread(service.upcoming, days)
     if not matches:
         await send_menu("No fixtures found in that window.", update)
@@ -268,18 +269,14 @@ async def cmd_today(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     truncated = len(matches) > 20
     matches = matches[:20]
-    await safe_send(
-        f"⏳ Analysing {len(matches)} matches across all covered leagues — this can take a minute…",
-        update,
-    )
-    preds = await asyncio.to_thread(lambda: [service.analyze(m) for m in matches])
+    preds = await asyncio.to_thread(service.digest_fast, days, 20)
     await send_menu(render_all_leagues(preds, days, truncated), update)
 
 
 async def cmd_hot(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not permitted(update):
         return
-    await update.effective_chat.send_action("typing")
+    await safe_send("⏳ Building Hot Picks across all leagues — this can take a few minutes on the first run…", update)
     picks = await asyncio.to_thread(service.hot_picks, 7, 2)
     for pick in picks:
         match = service.match_for_key(pick.match_key)
@@ -319,7 +316,7 @@ async def cb_league(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     except (ValueError, IndexError):
         await safe_send("Unknown league.", update)
         return
-    await update.effective_chat.send_action("typing")
+    await safe_send("⏳ Building the league report…", update)
     name, preds, sample_filled = await asyncio.to_thread(
         service.league_predictions, league_id, 7, 10
     )
@@ -367,6 +364,11 @@ async def daily_digest(context: ContextTypes.DEFAULT_TYPE) -> None:
             await context.bot.send_message(chat_id, text, parse_mode=ParseMode.MARKDOWN)
         except TelegramError as exc:
             log.warning("Digest failed for %s: %s", chat_id, exc)
+
+
+async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Log failures instead of silently leaving the menu looking dead."""
+    log.exception("Update failed: %s", context.error, exc_info=context.error)
 
 
 async def post_init(app: Application) -> None:
@@ -425,10 +427,8 @@ def start_self_ping(url: str) -> None:
 def prewarm_cache() -> None:
     """Fetch league data in the background so the first report is fast."""
     try:
-        matches = service.upcoming(2)
-        for match in matches[:12]:
-            service.analyze(match)
-        log.info("Cache prewarmed for %d matches", len(matches))
+        picks = service.hot_picks(7, 2)
+        log.info("Cache prewarmed: %d hot picks across all leagues", len(picks))
     except Exception as exc:
         log.warning("Cache prewarm failed: %s", exc)
 
@@ -450,9 +450,11 @@ def main() -> None:
         .read_timeout(25)
         .write_timeout(25)
         .pool_timeout(25)
+        .concurrent_updates(True)
         .post_init(post_init)
         .build()
     )
+    app.add_error_handler(on_error)
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("help", cmd_help))
     app.add_handler(CommandHandler("leagues", cmd_leagues))

@@ -31,7 +31,7 @@ NAMES = {39: "Premier League", 140: "La Liga", 135: "Serie A", 78: "Bundesliga",
 class FootballDataProvider:
     name = "football-data"
 
-    # Free tier allows 10 requests/minute. Space requests so we never get 429s.
+    # Free tier allows 10 requests/minute. Stay just under it.
     _request_times: list[float] = []
     _rate_lock = threading.Lock()
 
@@ -39,7 +39,7 @@ class FootballDataProvider:
         with self._rate_lock:
             now = time_module.monotonic()
             recent = [t for t in self._request_times if now - t < 60]
-            if len(recent) >= 6:
+            if len(recent) >= 9:
                 time_module.sleep(max(0.0, 60 - (now - recent[0]) + 0.2))
                 now = time_module.monotonic()
                 recent = [t for t in self._request_times if now - t < 60]

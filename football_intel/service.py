@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from .analysis.model import Prediction, predict
 from .analysis.picks import HotPick, candidate_signals
 from .config import get_settings
-from .data.base import build_context, current_season
+from .data.base import build_context, build_fast_context, current_season
 from .data.demo import DemoProvider, TEAM_ALIASES, get_provider, normalize_name
 from .data.models import Match
 
@@ -39,6 +39,24 @@ class AnalysisService:
             ctx.provider_error = str(exc)[:160]
         self._match_registry[match_key(match)] = match
         return predict(ctx)
+
+    def analyze_fast(self, match: Match, history_seasons: int | None = None) -> Prediction:
+        """Prediction from cached league data only — no per-match API calls."""
+        try:
+            ctx = build_fast_context(
+                self.provider, match, history_seasons or self.settings.history_seasons
+            )
+        except Exception as exc:
+            log.warning("Fast provider context failed (%s); using demo fallback", exc)
+            ctx = build_fast_context(
+                self.fallback, match, history_seasons or self.settings.history_seasons
+            )
+            ctx.provider_error = str(exc)[:160]
+        self._match_registry[match_key(match)] = match
+        return predict(ctx)
+
+    def digest_fast(self, days: int = 2, limit: int = 20) -> list[Prediction]:
+        return [self.analyze_fast(m) for m in self.upcoming(days)[:limit]]
 
     def match_for_key(self, key: str) -> Match | None:
         """Resolve a callback key produced by match_key()."""
@@ -135,12 +153,15 @@ class AnalysisService:
             ]
         matches = sorted(matches, key=lambda m: m.date)[:min_predictions]
 
-        preds = [self.analyze(m) for m in matches]
+        # Full analysis is reserved for the per-match deep dive; league and hot
+        # pick reports use the cached-data fast path so they stay responsive.
+        analyzer = self.analyze if self.settings.provider == "demo" else self.analyze_fast
+        preds = [analyzer(m) for m in matches]
         sample_filled = False
         if len(preds) < min_predictions:
             sample_filled = True
             for m in self._sample_pairings(league_id, min_predictions - len(preds), days):
-                preds.append(self.analyze(m))
+                preds.append(analyzer(m))
 
         try:
             name = self.provider.league_name(league_id, current_season())
