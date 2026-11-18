@@ -172,15 +172,16 @@ def build_fast_context(
     if len(h2h) >= 6:
         flags.append("rivalry")
 
+    home_stats, away_stats = stats_for(match.home_id), stats_for(match.away_id)
     quality = 0.6
-    quality += 0.1 if stats_for(match.home_id).played >= 5 else 0
-    quality += 0.1 if stats_for(match.away_id).played >= 5 else 0
+    quality += 0.1 if home_stats.played >= 5 else 0
+    quality += 0.1 if away_stats.played >= 5 else 0
     quality += 0.08 if table else 0
 
     return FixtureContext(
         match=match,
-        home=stats_for(match.home_id),
-        away=stats_for(match.away_id),
+        home=home_stats,
+        away=away_stats,
         h2h=h2h,
         standings=table,
         injuries={match.home_id: [], match.away_id: []},

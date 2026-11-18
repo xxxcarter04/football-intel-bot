@@ -7,7 +7,7 @@ import re
 import threading
 import time as time_module
 import urllib.request
-from datetime import datetime, time
+from datetime import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from telegram import (
@@ -35,7 +35,6 @@ from ..analysis.report import (
     render_analysis,
     render_hot_picks,
     render_league_predictions,
-    render_leagues_overview,
     render_quick,
 )
 from ..config import get_settings
@@ -61,7 +60,6 @@ BTN_MATCH = "🔍 Match"
 BTN_PROVIDER = "📡 Provider"
 BTN_REFRESH = "♻️ Refresh"
 BTN_HELP = "❓ Help"
-MENU_LABELS = {BTN_TODAY, BTN_LEAGUES, BTN_HOT, BTN_MATCH, BTN_PROVIDER, BTN_REFRESH, BTN_HELP}
 
 
 def permitted(update: Update) -> bool:
